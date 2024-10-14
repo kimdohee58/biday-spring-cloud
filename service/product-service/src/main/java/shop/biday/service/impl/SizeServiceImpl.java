@@ -25,9 +25,9 @@ public class SizeServiceImpl implements SizeService {
     private final UserInfoUtils userInfoUtils;
 
     @Override
-    public List<SizeEntity> findAll() {
+    public List<SizeModel> findAll() {
         log.info("Finding all sizes");
-        return sizeRepository.findAll();
+        return sizeRepository.findAllSize();
     }
 
     @Override

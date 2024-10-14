@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface SizeService {
-    List<SizeEntity> findAll();
+    List<SizeModel> findAll();
 
     Optional<SizeEntity> findById(Long id);
 
