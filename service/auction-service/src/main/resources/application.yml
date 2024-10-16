@@ -8,7 +8,7 @@ eureka:
     fetch-registry: true
     register-with-eureka: true
     service-url:
-      defaultZone: http://biday-eureka-server:8761/eureka/
+      defaultZone: http://localhost:8761/eureka/
 
 management:
   endpoints:
@@ -40,7 +40,7 @@ spring:
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://mysql:3306/bidaydb
+    url: jdbc:mysql://localhost:3306/bidaydb
     username: root
     password: biday
     hikari:
@@ -61,7 +61,7 @@ spring:
     mongodb:
       username: root
       password: biday
-      host: mongo
+      host: localhost
       port: 27017
       database: bidaydb
       authentication-database: admin

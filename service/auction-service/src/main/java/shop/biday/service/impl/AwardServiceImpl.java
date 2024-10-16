@@ -53,32 +53,33 @@ public class AwardServiceImpl implements AwardService {
     @Override
     public ResponseEntity<AwardModel> findByAwardId(String userInfoHeader, Long awardId) {
         log.info("Find User {} Award by Id: {}", userInfoHeader, awardId);
-        return validateUser(userInfoHeader)
-                .flatMap(uid -> awardRepository.findById(awardId)
-                        .filter(award -> {
-                            boolean isAuthorized = award.getUserId().equals(uid);
-                            if (isAuthorized) {
-                                log.info("User {} is authorized for award id {}", uid, awardId);
-                            } else {
-                                log.warn("User {} is not authorized for award id {}", uid, awardId);
-                            }
-                            return isAuthorized;
-                        })
-                        .map(award -> {
-                            log.info("Award found for User {}: {}", uid, awardId);
-                            return ResponseEntity.ok(awardRepository.findByAwardId(awardId));
-                        }))
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> {
-                    String userId = userInfoUtils.extractUserInfo(userInfoHeader).getUserId();
-                    if (awardRepository.findById(awardId).isPresent()) {
-                        log.error("User {} is not authorized for award id {}", userId, awardId);
-                        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-                    } else {
-                        log.error("Award not found for award id {}", awardId);
-                        return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-                    }
-                }).getBody();
+        return ResponseEntity.ok(awardRepository.findByAwardId(awardId));
+//        return validateUser(userInfoHeader)
+//                .flatMap(uid -> awardRepository.findById(awardId)
+//                        .filter(award -> {
+//                            boolean isAuthorized = award.getUserId().equals(uid);
+//                            if (isAuthorized) {
+//                                log.info("User {} is authorized for award id {}", uid, awardId);
+//                            } else {
+//                                log.warn("User {} is not authorized for award id {}", uid, awardId);
+//                            }
+//                            return isAuthorized;
+//                        })
+//                        .map(award -> {
+//                            log.info("Award found for User {}: {}", uid, awardId);
+//                            return ResponseEntity.ok(awardRepository.findByAwardId(awardId));
+//                        }))
+//                .map(ResponseEntity::ok)
+//                .orElseGet(() -> {
+//                    String userId = userInfoUtils.extractUserInfo(userInfoHeader).getUserId();
+//                    if (awardRepository.findById(awardId).isPresent()) {
+//                        log.error("User {} is not authorized for award id {}", userId, awardId);
+//                        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+//                    } else {
+//                        log.error("Award not found for award id {}", awardId);
+//                        return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+//                    }
+//                }).getBody();
     }
 
     @Override

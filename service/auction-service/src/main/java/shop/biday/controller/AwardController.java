@@ -62,8 +62,8 @@ public class AwardController {
             @Parameter(name = "awardId", description = "상세보기할 낙찰의 id", example = "1")
     })
     public ResponseEntity<AwardModel> findById(
-            @RequestHeader("UserInfo") String userInfoHeader,
+//            @RequestHeader("UserInfo") String userInfoHeader,
             @RequestParam(value = "awardId", required = true) Long awardId) {
-        return awardService.findByAwardId(userInfoHeader, awardId);
+        return awardService.findByAwardId("runa", awardId);
     }
 }
