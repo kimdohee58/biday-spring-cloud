@@ -8,7 +8,7 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
     service-url:
-      defaultZone: http://biday-eureka-server:8761/eureka/
+      defaultZone: http://localhost:8761/eureka/
 
 management:
   endpoints:
@@ -55,12 +55,18 @@ spring:
 
 openapi:
   service:
-    url: http://biday-order-service:8000
-springdoc:
-  api-docs:
-    path: /api/payments/v3/api-docs
+    url: http://localhost:8000
   swagger-ui:
     path: /swagger-ui
+
+springdoc:
+  api-docs:
+    version: openapi_3_1
+    enabled: true
+    path: /api/payments/v3/api-docs
+  enable-spring-security: true
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
 
 payments:
   toss:

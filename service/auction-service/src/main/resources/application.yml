@@ -86,3 +86,18 @@ payments:
   toss:
     secret:
       key: test_gsk_docs_OaPz8L5KdmQXkzRz3y47BMw6
+
+openapi:
+  service:
+    url: http://localhost:8000
+  swagger-ui:
+    path: /swagger-ui
+
+springdoc:
+  api-docs:
+    version: openapi_3_1
+    enabled: true
+    path: /api/auctions/v3/api-docs
+  enable-spring-security: true
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
