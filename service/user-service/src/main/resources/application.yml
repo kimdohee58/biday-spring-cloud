@@ -30,7 +30,7 @@ spring:
 
   data:
     mongodb:
-      uri: mongodb://root:biday@localhost:27017/bidaydb?authSource=admin
+      uri: mongodb://root:biday@mongo:27017/bidaydb?authSource=admin
 
   jwt:
     secret: vmfhaltmskdlstkfkdgodyroqkfwkdbalroqkfwkdbalaaaaaaaaaaaaaaaabbbbb

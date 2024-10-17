@@ -35,9 +35,9 @@ spring:
 
   data:
     mongodb:
+      host: mongo
       username: root
       password: biday
-      host: localhost
       port: 27017
       database: bidaydb
       authentication-database: admin
