@@ -29,6 +29,7 @@ spring:
 
   jpa:
     hibernate:
+      dialect: org.hibernate.dialect.MySQLDialect
       ddl-auto: update
     show-sql: true
     properties:
