@@ -50,6 +50,6 @@ out/
 .env
 
 # Ignore MySQL socket files
-backend/mysql/**
-backend/mongodb/**
-backend/redis/**
+#**/*./mysql
+#**/*./mongodb
+#**/*./redis

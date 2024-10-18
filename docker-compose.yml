@@ -57,7 +57,6 @@ services:
     depends_on:
       #      - config-server
       - eureka-server
-      - mysql
     hostname: biday-admin-host
     environment:
       - EUREKA_DEFAULT_ZONE=http://biday-eureka-server:8761/eureka/
@@ -75,7 +74,6 @@ services:
     depends_on:
       #      - config-server
       - eureka-server
-      - mysql
     hostname: biday-auction-host
     environment:
       - EUREKA_DEFAULT_ZONE=http://biday-eureka-server:8761/eureka/
@@ -110,7 +108,6 @@ services:
     depends_on:
       #      - config-server
       - eureka-server
-      - mysql
     hostname: biday-order-host
     environment:
       - EUREKA_DEFAULT_ZONE=http://biday-eureka-server:8761/eureka/
@@ -128,7 +125,6 @@ services:
     depends_on:
       #      - config-server
       - eureka-server
-      - mysql
     hostname: biday-product-host
     environment:
       - EUREKA_DEFAULT_ZONE=http://biday-eureka-server:8761/eureka/
@@ -169,54 +165,54 @@ services:
 
 
 
-#  mysql:
-#    container_name: mysql
-#    image: mysql:latest
-#    volumes:
-#      - ./mysql/demo/etc/mysql/conf.d:/etc/mysql/conf.d:ro
-#      - ./mysql/demo/var/lib/mysql:/var/lib/mysql
-#      - ./mysql/demo/var/log/mysql:/var/log/mysql
-#    environment:
-#      - MYSQL_DATABASE=bidaydb
-#      - MYSQL_ROOT_PASSWORD=biday
-#      - MYSQL_ROOT_HOST=%
-#    command: [ '--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci' ]
-#    ports:
-#      - "3306:3306"
-#    restart: always
-#    networks:
-#      - biday-network
-#
-#  redis:
-#    container_name: redis
-#    image: redis:latest
-#    ports:
-#      - 6379:6379
-#    command: redis-server --requirepass biday
-#    volumes:
-#      - ./redis/data:/data
-#      - ./redis/conf/redis.conf:/usr/local/conf/redis.conf
-#    labels:
-#      - "name=redis"
-#      - "mode=standalone"
-#    restart: always
-#    networks:
-#      - biday-network
-#
-#  mongo:
-#    container_name: mongo
-#    image: mongo:latest
-#    ports:
-#      - 27017:27017
-#    volumes:
-#      - ./mongodb:/data/db
-#    environment:
-#      - MONGO_INITDB_ROOT_USERNAME=root
-#      - MONGO_INITDB_ROOT_PASSWORD=biday
-#      - MONGO_INITDB_DATABASE=bidaydb
-#    restart: always
-#    networks:
-#      - biday-network
+  mysql:
+    container_name: mysql
+    image: mysql:latest
+    volumes:
+      - ./mysql/demo/etc/mysql/conf.d:/etc/mysql/conf.d:ro
+      - ./mysql/demo/var/lib/mysql:/var/lib/mysql
+      - ./mysql/demo/var/log/mysql:/var/log/mysql
+    environment:
+      - MYSQL_DATABASE=bidaydb
+      - MYSQL_ROOT_PASSWORD=biday
+      - MYSQL_ROOT_HOST=%
+    command: [ '--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci' ]
+    ports:
+      - "3306:3306"
+    restart: always
+    networks:
+      - biday-network
+
+  redis:
+    container_name: redis
+    image: redis:latest
+    ports:
+      - 6379:6379
+    command: redis-server --requirepass biday
+    volumes:
+      - ./redis/data:/data
+      - ./redis/conf/redis.conf:/usr/local/conf/redis.conf
+    labels:
+      - "name=redis"
+      - "mode=standalone"
+    restart: always
+    networks:
+      - biday-network
+
+  mongo:
+    container_name: mongo
+    image: mongo:latest
+    ports:
+      - 27017:27017
+    volumes:
+      - ./mongodb:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=biday
+      - MONGO_INITDB_DATABASE=bidaydb
+    restart: always
+    networks:
+      - biday-network
 
 networks:
   biday-network:
