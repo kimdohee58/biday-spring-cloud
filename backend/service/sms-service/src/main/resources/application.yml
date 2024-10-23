@@ -3,7 +3,7 @@ spring:
     ansi:
       enabled: always
   application:
-    name: product-service
+    name: sms-service
   profiles:
     active: local
   config:

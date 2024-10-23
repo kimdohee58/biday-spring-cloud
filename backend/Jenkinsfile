@@ -2,12 +2,14 @@ pipeline {
     agent any
 
     environment {
+        WORKSPACE_PATH = "/var/lib/jenkins/workspace/biday-msa/backend"
         DOCKER_HUB_URL = "${docker_hub_url}"
         GITHUB_URL = "${github_url}"
-        DOCKER_HUB_CREDENTIAL = 'dockerhub'
-        GIT_SSH_CREDENTIALS = 'github_ssh'
-//         KUBECONFIG = "${env.WORKSPACE}/.ncloud/kubeconfig"
-        KUBECONFIG = '/var/lib/jenkins/.ncloud/kubeconfig'
+        DOCKER_HUB_CREDENTIALS = 'dockerhub'
+        GIT_SSH_CREDENTIALS = 'git_ssh'
+        DOCKER_HUB_REPO = "hwijae/biday"
+        SLACK_CHANNEL = '#jenkins-log'
+        KUBECONFIG = "/var/lib/jenkins/.kube/config"
     }
 
     tools {
@@ -20,31 +22,25 @@ pipeline {
             steps {
                 script {
                     modulePaths = [
-                       "config-server": "/var/lib/jenkins/workspace/biday-spring-cloud/backend/server/config-server",
-                       "eureka-server": "/var/lib/jenkins/workspace/biday-spring-cloud/backend/server/eureka-server",
-                       "gateway-server": "/var/lib/jenkins/workspace/biday-spring-cloud/backend/server/gateway-server",
-                       "admin-service": "/var/lib/jenkins/workspace/biday-spring-cloud/backend/service/admin-service",
-                       "auction-service": "/var/lib/jenkins/workspace/biday-spring-cloud/backend/service/auction-service",
-                       "ftp-service": "/var/lib/jenkins/workspace/biday-spring-cloud/backend/service/ftp-service",
-                       "order-service": "/var/lib/jenkins/workspace/biday-spring-cloud/backend/service/order-service",
-                       "product-service": "/var/lib/jenkins/workspace/biday-spring-cloud/backend/service/product-service",
-                       "sms-service": "/var/lib/jenkins/workspace/biday-spring-cloud/backend/service/sms-service",
-                       "user-service": "/var/lib/jenkins/workspace/biday-spring-cloud/backend/service/user-service"
-                   ]
+                        "config-server": "${WORKSPACE_PATH}/server/config-server",
+                        "eureka-server": "${WORKSPACE_PATH}/server/eureka-server",
+                        "gateway-server": "${WORKSPACE_PATH}/server/gateway-server",
+                        "admin-service": "${WORKSPACE_PATH}/service/admin-service",
+                        "auction-service": "${WORKSPACE_PATH}/service/auction-service",
+                        "ftp-service": "${WORKSPACE_PATH}/service/ftp-service",
+                        "order-service": "${WORKSPACE_PATH}/service/order-service",
+                        "product-service": "${WORKSPACE_PATH}/service/product-service",
+                        "sms-service": "${WORKSPACE_PATH}/service/sms-service",
+                        "user-service": "${WORKSPACE_PATH}/service/user-service"
+                    ]
                 }
             }
         }
 
-        stage('Github ') {
+        stage('Github Checkout') {
             steps {
-                script {
-                    echo "Deinitializing and updating submodule..."
-                    sh 'git submodule deinit -f backend/server/secret-server'
-                    sh 'git submodule update --init --recursive'
-                }
-
                 checkout scmGit(
-                    branches: [[name: '*/main']],
+                    branches: [[name: '*/dev']],
                     extensions: [
                         submodule(parentCredentials: true, recursiveSubmodules: true, reference: '', trackingSubmodules: true)
                     ],
@@ -60,108 +56,152 @@ pipeline {
                 echo '=== build modules shell script start ==='
                 dir('backend') {
                     script {
-                        sh 'chmod +x gradlew'
-
-                        def allModules = [
-                            "server:config-server",
-                            "server:eureka-server",
-                            "server:gateway-server",
-                            "service:admin-service",
-                            "service:auction-service",
-                            "service:ftp-service",
-                            "service:order-service",
-                            "service:product-service",
-                            "service:sms-service",
-                            "service:user-service"
-                        ]
-
-                        echo "Cleaning..."
-                        sh './gradlew clean'
-
-                        allModules.each { module ->
-                            echo "Building for ${module}"
-                            sh "./gradlew :${module}:bootJar"
-                        }
-
-//                     sh 'chmod +x buildModule.sh'
-//                     sh './buildModule.sh'
+                        sh 'chmod +x buildModule.sh'
+                        sh './buildModule.sh'
                     }
                 }
             }
         }
 
-        stage('Docker Image Build') {
+        stage('Docker Login') {
             steps {
                 script {
-                    docker.withRegistry('https://index.docker.io/v1/', DOCKER_HUB_CREDENTIAL) {
-                        modulePaths.each { module, path ->
-                            echo "Building Docker image for ${module}"
-                            sh """
-                               docker build -t ${DOCKER_HUB_URL}/biday-${module}-personal:${BUILD_TAG} ${path}
-                            """
-                        }
+                    withCredentials([usernamePassword(credentialsId: 'DockerHub_IdPw', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin"
                     }
                 }
             }
         }
 
-        stage('Docker Image Push') {
+        stage('Docker Build') {
             steps {
                 script {
-                    docker.withRegistry('https://index.docker.io/v1/', DOCKER_HUB_CREDENTIAL) {
-                        modulePaths.each { module, path ->
-                            echo "Pushing Docker image for ${module}"
-                            sh """
-                               docker push ${DOCKER_HUB_URL}/biday-${module}-personal:${BUILD_TAG}
-                            """
-                        }
+                    modulePaths.each { module, path ->
+                        echo "Building Docker image for ${module}..."
+                        sh """
+                            docker build -t biday/${module}:latest ${path} --file ${path}/Dockerfile || {
+                                echo 'Docker build failed for ${module} at ${path}';
+                                exit 1;
+                            }
+                        """
                     }
                 }
             }
         }
 
-        // kuber
-        stage('Kubernetes 배포') {
+        stage('Docker Push') {
             steps {
                 script {
-                    echo "Kubernetes로 배포 중..."
+                    def version = "${BUILD_TAG}"
 
-                    // KUBECONFIG 파일의 존재 여부 확인
-                    if (fileExists(KUBECONFIG)) {
-                        echo "KUBECONFIG 파일이 존재합니다: ${KUBECONFIG}"
+                    modulePaths.each { module, path ->
+                        echo "Tagging and pushing ${module}..."
+                        sh """
+                            docker tag biday/${module}:latest hwijae/biday-${module}:${version} || { echo 'Docker tag failed for ${module}!'; exit 1; }
+                            docker push hwijae/biday-${module}:${version} || { echo 'Docker push failed for ${module}!'; exit 1; }
+                        """
+                    }
 
-                        // kubectl을 사용하여 클러스터 상태 확인
-                        sh 'kubectl cluster-info'
+                    echo "Docker images pushed successfully!"
+                }
+            }
+            post {
+                success {
+                    echo "Docker push completed successfully!"
+                }
+                failure {
+                    echo "Docker push failed!"
+                    error 'Docker push failed'
+                }
+            }
+        }
 
-                        modulePaths.each { module, path ->
-                            echo "Deploying ${module} to Kubernetes..."
-                            sh """
-                                kubectl set image deployment/${module} ${module}=${DOCKER_HUB_URL}/biday-${module}-personal:${BUILD_TAG} --namespace=my-namespace
-                            """
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    // Kubernetes YAML 파일 경로 정의
+                    def kubernetesPaths = [
+                        "admin": "${WORKSPACE_PATH}/k8s/admin.yaml",
+                        "auction": "${WORKSPACE_PATH}/k8s/auction.yaml",
+                        "config": "${WORKSPACE_PATH}/k8s/config.yaml",
+                        "eureka": "${WORKSPACE_PATH}/k8s/eureka.yaml",
+                        "ftp": "${WORKSPACE_PATH}/k8s/ftp.yaml",
+                        "gateway": "${WORKSPACE_PATH}/k8s/gateway.yaml",
+                        "order": "${WORKSPACE_PATH}/k8s/order.yaml",
+                        "product": "${WORKSPACE_PATH}/k8s/product.yaml",
+                        "user": "${WORKSPACE_PATH}/k8s/user.yaml"
+                    ]
+
+                    // 각 모듈에 대해 Kubernetes 배포 수행
+                    kubernetesPaths.each { module, yamlPath ->
+                        echo "Applying Kubernetes deployment for ${module} using YAML file: ${yamlPath}"
+
+                        // YAML 파일을 사용하여 배포 적용
+                        sh """
+                        kubectl --kubeconfig=${KUBECONFIG} apply -f ${yamlPath} || {
+                            echo 'Kubernetes deployment failed for ${module}';
+                            exit 1;
                         }
-                    } else {
-                        error "KUBECONFIG 파일이 존재하지 않습니다: ${KUBECONFIG}"
+                        """
+
+                        // 배포 롤아웃 상태 확인
+                        echo "Checking rollout status for deployment ${module}"
+                        sh """
+                        kubectl --kubeconfig=${KUBECONFIG} rollout status deployment/${module} || {
+                            echo 'Rollout status check failed for ${module}';
+                            exit 1;
+                        }
+                        """
                     }
                 }
             }
         }
     }
 
-    post{
-        success{
+    post {
+        success {
             echo "========pipeline executed successfully ========"
-            echo "Image 정리..."
+
+            // 슬랙 성공 메시지 보내기
+            slackSend(
+                channel: env.SLACK_CHANNEL,
+                attachments: [
+                    [
+                        text: "백엔드 배포가 성공적으로 완료되었습니다! 🚀",
+                        footer: "배포 시간: ${new Date()}",
+                        color: "#00FF00" // 초록색
+                    }
+                ],
+                message: "배포 성공!",
+                tokenCredentialId: 'Slack_webhook' // 자격 증명 ID 입력
+            )
+
             script {
-                modulePaths.each { module, path ->
-                    echo "Clean Docker image for ${module}"
-                    sh """
-                       docker rmi ${DOCKER_HUB_URL}/biday-${module}-personal:${BUILD_TAG}
-                    """
+                modulePaths.keySet().each { module ->
+                    echo "Removing local image for ${module}..."
+                    sh "docker rmi biday/${module}:latest || echo 'Failed to remove image for ${module}'"
                 }
             }
         }
-        failure{
+        failure {
             echo "========pipeline execution failed========"
+
+            // 슬랙 실패 메시지 보내기
+            slackSend(
+                channel: env.SLACK_CHANNEL,
+                attachments: [
+                    [
+                        text: "배포 중 오류가 발생했습니다. 🥲",
+                        footer: "오류 발생 시간: ${new Date()}",
+                        color: "#FF0000" // 빨간색
+                    }
+                ],
+                message: "배포 실패!",
+                tokenCredentialId: 'Slack_webhook' // 자격 증명 ID 입력
+            )
+        }
+        always {
+            echo 'Cleaning workspace...'
         }
     }
 }
