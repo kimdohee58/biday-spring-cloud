@@ -1,0 +1,6 @@
+[submodule "backend/server/config-server"]
+	path = backend/server/config-server
+	url = git@github.com:kimdohee58/biday-config-server.git
+[submodule "backend/server/secret-server"]
+	path = backend/server/secret-server
+	url = git@github.com:kimdohee58/biday-secret-server.git
