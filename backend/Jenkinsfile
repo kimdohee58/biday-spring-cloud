@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_HUB_URL = "${dockerhub_url}"
+        DOCKER_HUB_URL = "${docker_hub_url}"
         GITHUB_URL = "${github_url}"
         DOCKER_HUB_CREDENTIAL = 'dockerhub'
         GIT_SSH_CREDENTIALS = 'github_ssh'
@@ -126,12 +126,21 @@ pipeline {
                 script {
                     echo "Kubernetes로 배포 중..."
 
-                    // kubectl을 사용한 배포
-                    modulePaths.each { module, path ->
-                        echo "Deploying ${module} to Kubernetes..."
-                        sh """
-                            kubectl set image deployment/${module} ${module}=${DOCKER_HUB_URL}/biday-${module}-personal:${BUILD_TAG} --namespace=my-namespace
-                        """
+                    // KUBECONFIG 파일의 존재 여부 확인
+                    if (fileExists(KUBECONFIG)) {
+                        echo "KUBECONFIG 파일이 존재합니다: ${KUBECONFIG}"
+
+                        // kubectl을 사용하여 클러스터 상태 확인
+                        sh 'kubectl cluster-info'
+
+                        modulePaths.each { module, path ->
+                            echo "Deploying ${module} to Kubernetes..."
+                            sh """
+                                kubectl set image deployment/${module} ${module}=${DOCKER_HUB_URL}/biday-${module}-personal:${BUILD_TAG} --namespace=my-namespace
+                            """
+                        }
+                    } else {
+                        error "KUBECONFIG 파일이 존재하지 않습니다: ${KUBECONFIG}"
                     }
                 }
             }
