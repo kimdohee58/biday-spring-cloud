@@ -1,0 +1,91 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.3.4'
+    id 'io.spring.dependency-management' version '1.1.6'
+}
+
+group = 'shop.biday'
+version = '0.0.1'
+
+jar.enabled = false
+bootJar.enabled = true
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    set('springCloudVersion', "2023.0.2")
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+    }
+}
+
+dependencies {
+    // spring boot
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+    // spring security
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+
+    // spring cloud
+    implementation 'org.springframework.cloud:spring-cloud-starter-gateway:4.1.5'
+    implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-reactor-resilience4j:3.1.2'
+    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+
+    // jwt
+    implementation group: 'io.jsonwebtoken', name: 'jjwt-api', version: '0.12.6'
+    runtimeOnly group: 'io.jsonwebtoken', name: 'jjwt-impl', version: '0.12.6'
+    runtimeOnly group: 'io.jsonwebtoken', name: 'jjwt-jackson', version: '0.12.6'
+
+    // actuator
+    implementation 'org.springframework.boot:spring-boot-starter-actuator:3.3.4'
+
+    // prometheus
+    implementation group: 'io.micrometer', name: 'micrometer-registry-prometheus', version: '1.13.4'
+
+    // spring doc
+    implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.6.0'
+
+    // config
+    implementation 'org.springframework.cloud:spring-cloud-starter-config'
+
+    // redis
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
+
+    // lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // validation
+    implementation 'org.hibernate.validator:hibernate-validator:7.0.0.Final'
+    implementation 'jakarta.validation:jakarta.validation-api:3.1.0'
+    implementation 'org.apache.httpcomponents.client5:httpclient5:5.2'
+
+    // devtools
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+    // test
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.projectreactor:reactor-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

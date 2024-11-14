@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: config-deploy
+  namespace: biday
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: config
+  template:
+    metadata:
+      labels:
+        app: config
+    spec:
+      containers:
+        - name: config
+          image: hwijae/biday-config-server:3.1
+          ports:
+            - containerPort: 8888
+          volumeMounts:
+            - name: ssh-key
+              mountPath: /var/lib/jenkins/.ssh/id_rsa
+              subPath: id_rsa
+          env:
+            - name: SPRING_CLOUD_CONFIG_SERVER_GIT_URI
+              value: "git@github.com:biday5/biday-secret.git"
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+      volumes:
+        - name: ssh-key
+          secret:
+            secretName: git-ssh-key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: config-server
+  namespace: biday
+spec:
+  type: ClusterIP
+  selector:
+    app: config
+  ports:
+    - port: 8888
+      targetPort: 8888  
+

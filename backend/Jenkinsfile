@@ -1,0 +1,201 @@
+pipeline {
+    agent any
+
+    environment {
+        WORKSPACE_PATH = "/var/lib/jenkins/workspace/biday-msa/backend"
+        DOCKER_HUB_URL = "${docker_hub_url}"
+        GITHUB_URL = "${github_url}"
+        DOCKER_HUB_CREDENTIALS = 'dockerhub'
+        GIT_SSH_CREDENTIALS = 'git_ssh'
+        DOCKER_HUB_REPO = "hwijae/biday"
+        SLACK_CHANNEL = '#jenkins-log'
+        KUBECONFIG = "/var/lib/jenkins/.kube/config"
+    }
+
+    tools {
+        jdk 'openjdk_17'
+        gradle 'gradle_8.10'
+    }
+
+    stages {
+        stage('Initialize') {
+            steps {
+                script {
+                    modulePaths = [
+                        "config-server": "${WORKSPACE_PATH}/server/config-server",
+                        "eureka-server": "${WORKSPACE_PATH}/server/eureka-server",
+                        "gateway-server": "${WORKSPACE_PATH}/server/gateway-server",
+                        "admin-service": "${WORKSPACE_PATH}/service/admin-service",
+                        "auction-service": "${WORKSPACE_PATH}/service/auction-service",
+                        "ftp-service": "${WORKSPACE_PATH}/service/ftp-service",
+                        "order-service": "${WORKSPACE_PATH}/service/order-service",
+                        "product-service": "${WORKSPACE_PATH}/service/product-service",
+                        "sms-service": "${WORKSPACE_PATH}/service/sms-service",
+                        "user-service": "${WORKSPACE_PATH}/service/user-service"
+                    ]
+                }
+            }
+        }
+
+        stage('Github Checkout') {
+            steps {
+                checkout scmGit(
+                    branches: [[name: '*/dev']],
+                    extensions: [
+                        submodule(parentCredentials: true, recursiveSubmodules: true, reference: '', trackingSubmodules: true)
+                    ],
+                    userRemoteConfigs: [
+                        [credentialsId: GIT_SSH_CREDENTIALS, url: GITHUB_URL]
+                    ]
+                )
+            }
+        }
+
+        stage('Gradle Build') {
+            steps {
+                echo '=== build modules shell script start ==='
+                dir('backend') {
+                    script {
+                        sh 'chmod +x buildModule.sh'
+                        sh './buildModule.sh'
+                    }
+                }
+            }
+        }
+
+        stage('Docker Login') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'DockerHub_IdPw', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin"
+                    }
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                script {
+                    modulePaths.each { module, path ->
+                        echo "Building Docker image for ${module}..."
+                        sh """
+                            docker build -t biday/${module}:latest ${path} --file ${path}/Dockerfile || {
+                                echo 'Docker build failed for ${module} at ${path}';
+                                exit 1;
+                            }
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                script {
+                    def version = "${BUILD_TAG}"
+
+                    modulePaths.each { module, path ->
+                        echo "Tagging and pushing ${module}..."
+                        sh """
+                            docker tag biday/${module}:latest hwijae/biday-${module}:${version} || { echo 'Docker tag failed for ${module}!'; exit 1; }
+                            docker push hwijae/biday-${module}:${version} || { echo 'Docker push failed for ${module}!'; exit 1; }
+                        """
+                    }
+
+                    echo "Docker images pushed successfully!"
+                }
+            }
+            post {
+                success {
+                    echo "Docker push completed successfully!"
+                }
+                failure {
+                    echo "Docker push failed!"
+                    error 'Docker push failed'
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    // Kubernetes YAML 파일 경로 정의
+                    def kubernetesPaths = [
+                        "config-server": "${WORKSPACE_PATH}/k8s/config.yaml",
+                        "eureka-server": "${WORKSPACE_PATH}/k8s/eureka.yaml",
+                        "gateway-server": "${WORKSPACE_PATH}/k8s/gateway.yaml",
+                        "admin-service": "${WORKSPACE_PATH}/k8s/admin.yaml",
+                        "auction-service": "${WORKSPACE_PATH}/k8s/auction.yaml",
+                        "ftp-service": "${WORKSPACE_PATH}/k8s/ftp.yaml",
+                        "order-service": "${WORKSPACE_PATH}/k8s/order.yaml",
+                        "product-service": "${WORKSPACE_PATH}/k8s/product.yaml",
+                        "user-service": "${WORKSPACE_PATH}/k8s/user.yaml"
+                    ]
+
+                    // 각 모듈에 대해 Kubernetes 배포 수행
+                    kubernetesPaths.each { module, yamlPath ->
+                        echo "Applying Kubernetes deployment for ${module} using YAML file: ${yamlPath}"
+
+                        // YAML 파일을 사용하여 배포 적용
+                        sh """
+                        kubectl apply -f ${yamlPath} || {
+                            echo 'Kubernetes deployment failed for ${module}';
+                            exit 1;
+                        }
+                        """
+
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "========pipeline executed successfully ========"
+
+            // 슬랙 성공 메시지 보내기
+            slackSend(
+                channel: env.SLACK_CHANNEL,
+                attachments: [
+                    [
+                        text: "백엔드 배포가 성공적으로 완료되었습니다! 🚀",
+                        footer: "배포 시간: ${new Date()}",
+                        color: "#00FF00" // 초록색
+                    ]
+                ],
+                message: "배포 성공!",
+                tokenCredentialId: 'Slack_webhook' // 자격 증명 ID 입력
+            )
+
+             script {
+                 modulePaths.keySet().each { module ->
+                     echo "Removing local image for ${module}..."
+                     // 로컬 도커 이미지 삭제
+                     sh "docker rmi biday/${module} || echo 'Failed to remove local image for ${module}'"
+                     sh "docker rmi hwijae/biday-${module}:1.0 || echo 'Failed to remove tagged image for ${module}'"
+                 }
+             }
+        }
+        failure {
+            echo "========pipeline execution failed========"
+
+            // 슬랙 실패 메시지 보내기
+            slackSend(
+                channel: env.SLACK_CHANNEL,
+                attachments: [
+                    [
+                        text: "배포 중 오류가 발생했습니다. 🥲",
+                        footer: "오류 발생 시간: ${new Date()}",
+                        color: "#FF0000" // 빨간색
+                    ]
+                ],
+                message: "배포 실패!",
+                tokenCredentialId: 'Slack_webhook' // 자격 증명 ID 입력
+            )
+        }
+        always {
+            echo 'Cleaning workspace...'
+        }
+    }
+}

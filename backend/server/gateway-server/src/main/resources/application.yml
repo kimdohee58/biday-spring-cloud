@@ -1,0 +1,10 @@
+spring:
+  output:
+    ansi:
+      enabled: always
+  application:
+    name: gateway-server
+  profiles:
+    active: prod
+  config:
+    import: configserver:http://config-server:8888/
